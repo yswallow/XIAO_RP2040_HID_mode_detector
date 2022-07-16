@@ -1,0 +1,9 @@
+services:
+  pico:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    stdin_open: true
+    tty: true
+    volumes:
+      - .:/check_hid
