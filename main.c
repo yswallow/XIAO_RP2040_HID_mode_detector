@@ -30,14 +30,18 @@
 #include "bsp/board.h"
 #include "tusb.h"
 #include "device/dcd.h"
+#include "usb_descriptors.h"
 
 #include "hardware/resets.h"
 #include "hardware/gpio.h"
 #include "pico/time.h"
 
-#include "usb_descriptors.h"
-
 #include "hardware/structs/scb.h"
+
+#include "hardware/pll.h"
+#include "hardware/clocks.h"
+#include "hardware/structs/pll.h"
+#include "hardware/structs/clocks.h"
 
 #define LED_UNDEFINED 17
 #define LED_BOOT_MODE 16
@@ -75,6 +79,12 @@ void led_task(void) {
 /*------------- MAIN -------------*/
 int main(void)
 {
+  clock_configure(clk_sys,
+                    CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
+                    CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
+                    48 * MHZ,
+                    48 * MHZ);
+
   if(hid_mode_magic_location[0]==RESET_TO_REPORT) {
     device_mode = DEVICE_MODE_REPORT;
   } else if(hid_mode_magic_location[0]==RESET_TO_BOOT){
