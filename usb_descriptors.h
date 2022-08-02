@@ -26,17 +26,14 @@
 #ifndef USB_DESCRIPTORS_H_
 #define USB_DESCRIPTORS_H_
 
-typedef enum
+enum
 {
-  DEVICE_MODE_UNDEFINED,
-  DEVICE_MODE_BOOT,
-  DEVICE_MODE_REPORT,
-} device_mode_t;
+  DEVICE_MODE_BOOT = 0xDEADBEEF,
+  DEVICE_MODE_REPORT = 0x00C0FFEE,
+};
 
-extern device_mode_t device_mode;
-extern uint32_t hid_mode_magic_location[1];
+extern uint32_t device_mode;
 void reset_usb(void);
-
 
 enum
 {
@@ -61,11 +58,6 @@ enum
   REPORT_ID_CONSUMER_CONTROL,
   REPORT_ID_GAMEPAD,
   REPORT_ID_COUNT
-};
-
-enum {
-  RESET_TO_REPORT = 0xDEADBEEF,
-  RESET_TO_BOOT = 0x00C0FFEE,
 };
 
 #endif /* USB_DESCRIPTORS_H_ */

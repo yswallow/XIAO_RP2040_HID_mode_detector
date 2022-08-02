@@ -53,25 +53,13 @@
 // MACRO CONSTANT TYPEDEF PROTYPES
 //--------------------------------------------------------------------+
 
-device_mode_t device_mode = DEVICE_MODE_UNDEFINED;
-
-uint32_t __uninitialized_ram(hid_mode_magic_location)[1];
+uint32_t __uninitialized_ram(device_mode);
 
 static void hid_task(void);
 static void write_serial_port(void);
-#if 0
-bool reset_flag = false;
-void check_for_reset(void) {
-  if( reset_flag ) {
-    hid_mode_magic_location[0] = RESET_TO_REPORT;
-    reset_usb();
-    reset_flag = false;
-  }
-}
-#endif
 
 void led_task(void) {
-    gpio_put( LED_UNDEFINED, device_mode==DEVICE_MODE_UNDEFINED ? LED_ON : LED_OFF );
+    gpio_put( LED_UNDEFINED, (! (device_mode==DEVICE_MODE_BOOT || device_mode==DEVICE_MODE_REPORT)) ? LED_ON : LED_OFF );
     gpio_put( LED_BOOT_MODE, device_mode==DEVICE_MODE_BOOT ? LED_ON : LED_OFF );
     gpio_put( LED_REPORT_MODE, device_mode==DEVICE_MODE_REPORT ? LED_ON : LED_OFF );
 }
@@ -84,14 +72,6 @@ int main(void)
                     CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
                     48 * MHZ,
                     48 * MHZ);
-
-  if(hid_mode_magic_location[0]==RESET_TO_REPORT) {
-    device_mode = DEVICE_MODE_REPORT;
-  } else if(hid_mode_magic_location[0]==RESET_TO_BOOT){
-    device_mode = DEVICE_MODE_BOOT;
-  } else {
-    device_mode = DEVICE_MODE_UNDEFINED;
-  }
   
   board_init();
   tusb_init();
@@ -125,7 +105,7 @@ void tud_mount_cb(void)
 // Invoked when device is unmounted
 void tud_umount_cb(void)
 {
-    device_mode = DEVICE_MODE_UNDEFINED;
+    device_mode = 0;
 }
 
 // Invoked when usb bus is suspended
@@ -165,12 +145,6 @@ static void send_down(bool btn) {
 
 void reset_usb(void) 
 {
-#if 0
-  reset_block(RESETS_RESET_USBCTRL_BITS);
-  sleep_ms(500);
-  unreset_block_wait(RESETS_RESET_USBCTRL_BITS);
-#endif
-  // system reset
   scb_hw->aircr = 0x05FA0004;
 }
 
@@ -232,17 +206,17 @@ void tud_hid_set_protocol_cb(uint8_t instance, uint8_t protocol)
   
   if( protocol == HID_PROTOCOL_BOOT ) {
     if( device_mode==DEVICE_MODE_REPORT ) {
-      hid_mode_magic_location[0] = RESET_TO_BOOT;
+      device_mode = DEVICE_MODE_BOOT;
       reset_usb();
     } else {
-        device_mode = DEVICE_MODE_BOOT;
+      device_mode = DEVICE_MODE_BOOT;
     }
   } else {
-    if( device_mode==DEVICE_MODE_BOOT ) {
-      hid_mode_magic_location[0] = RESET_TO_REPORT;
+    if( device_mode!=DEVICE_MODE_REPORT ) {
+      device_mode = DEVICE_MODE_REPORT;
       reset_usb();
     } else {
-        device_mode = DEVICE_MODE_REPORT;
+      device_mode = DEVICE_MODE_REPORT;
     }
   }
 }

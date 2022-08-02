@@ -39,29 +39,11 @@
 #define USB_VID   0xCafe
 #define USB_BCD   0x0200
 
+//#define FORCE_BOOT
+
 //--------------------------------------------------------------------+
 // Device Descriptors
 //--------------------------------------------------------------------+
-tusb_desc_device_t const boot_desc_device =
-{
-    .bLength            = sizeof(tusb_desc_device_t),
-    .bDescriptorType    = TUSB_DESC_DEVICE,
-    .bcdUSB             = USB_BCD,
-    .bDeviceClass       = 0x00,
-    .bDeviceSubClass    = 0x00,
-    .bDeviceProtocol    = 0x00,
-    .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
-
-    .idVendor           = USB_VID,
-    .idProduct          = USB_PID,
-    .bcdDevice          = 0x0100,
-
-    .iManufacturer      = 0x01,
-    .iProduct           = 0x02,
-    .iSerialNumber      = 0x03,
-
-    .bNumConfigurations = 0x01
-};
 
 tusb_desc_device_t const report_desc_device =
 {
@@ -88,11 +70,7 @@ tusb_desc_device_t const report_desc_device =
 // Application return pointer to descriptor
 uint8_t const * tud_descriptor_device_cb(void)
 {
-  if(device_mode==DEVICE_MODE_BOOT) {
-    return (uint8_t const *) &boot_desc_device;
-  } else {
-    return (uint8_t const *) &report_desc_device;
-  }
+  return (uint8_t const *) &report_desc_device;
 }
 
 //--------------------------------------------------------------------+
@@ -107,32 +85,42 @@ uint8_t const desc_hid_report[] =
   TUD_HID_REPORT_DESC_GAMEPAD ( HID_REPORT_ID(REPORT_ID_GAMEPAD          ))
 };
 
+#ifdef FORCE_BOOT
+uint8_t const desc_boot_report[] =
+{
+    TUD_HID_REPORT_DESC_KEYBOARD(),
+};
+#endif
+
 // Invoked when received GET HID REPORT DESCRIPTOR
 // Application return pointer to descriptor
 // Descriptor contents must exist long enough for transfer to complete
 uint8_t const * tud_hid_descriptor_report_cb(uint8_t instance)
 {
   (void) instance;
-  if( device_mode == DEVICE_MODE_BOOT ) {
-    hid_mode_magic_location[0] = RESET_TO_REPORT;
-    reset_usb();
-  } else {
+#ifdef FORCE_BOOT
+  return desc_boot_report;
+#else
+  if( device_mode != DEVICE_MODE_REPORT ) {
     device_mode = DEVICE_MODE_REPORT;
+    reset_usb();
   }
   return desc_hid_report;
+#endif // FORCE_BOOT
 }
 
 //--------------------------------------------------------------------+
 // Configuration Descriptor
 //--------------------------------------------------------------------+
 
-#define  BOOT_CONFIG_TOTAL_LEN  (TUD_CONFIG_DESC_LEN + TUD_HID_DESC_LEN * CFG_TUD_HID + CFG_TUD_CDC * TUD_CDC_DESC_LEN)
-#define REPORT_CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + CFG_TUD_CDC * TUD_CDC_DESC_LEN + TUD_HID_DESC_LEN * CFG_TUD_HID)
+#define  BOOT_CONFIG_TOTAL_LEN  (TUD_CONFIG_DESC_LEN + TUD_HID_INOUT_DESC_LEN * CFG_TUD_HID + CFG_TUD_CDC * TUD_CDC_DESC_LEN)
+#define REPORT_CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + CFG_TUD_CDC * TUD_CDC_DESC_LEN + TUD_HID_INOUT_DESC_LEN * CFG_TUD_HID)
 
 #define EPNUM_CDC_NOTIF   0x81
 #define EPNUM_CDC_OUT     0x02
 #define EPNUM_CDC_IN      0x82
-#define EPNUM_HID   0x84
+#define EPNUM_HID_IN   0x84
+#define EPNUM_HID_OUT  0x04
 
 uint8_t const boot_desc_configuration[] =
 {
@@ -140,8 +128,11 @@ uint8_t const boot_desc_configuration[] =
   TUD_CONFIG_DESCRIPTOR(1, BOOT_ITF_NUM_TOTAL, 0, BOOT_CONFIG_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
 
   // Interface number, string index, protocol, report descriptor len, EP In address, size & polling interval
-  TUD_HID_DESCRIPTOR(BOOT_ITF_NUM_KEYBOARD, 0, HID_ITF_PROTOCOL_KEYBOARD, sizeof(desc_hid_report), EPNUM_HID, CFG_TUD_HID_EP_BUFSIZE, 8),
-
+#ifdef FORCE_BOOT
+  TUD_HID_INOUT_DESCRIPTOR(BOOT_ITF_NUM_KEYBOARD, 0, HID_ITF_PROTOCOL_KEYBOARD, sizeof(desc_boot_report), EPNUM_HID_IN, EPNUM_HID_OUT, CFG_TUD_HID_EP_BUFSIZE, 8),
+#else
+  TUD_HID_INOUT_DESCRIPTOR(BOOT_ITF_NUM_KEYBOARD, 0, HID_ITF_PROTOCOL_KEYBOARD, sizeof(desc_hid_report), EPNUM_HID_IN, EPNUM_HID_OUT, CFG_TUD_HID_EP_BUFSIZE, 8),
+#endif
   TUD_CDC_DESCRIPTOR(BOOT_ITF_NUM_CDC, 4, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
 };
 
@@ -154,7 +145,7 @@ uint8_t const report_desc_fs_configuration[] =
   TUD_CDC_DESCRIPTOR(REPORT_ITF_NUM_CDC, 4, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
 
   // Interface number, string index, protocol, report descriptor len, EP In address, size & polling interval
-  TUD_HID_DESCRIPTOR(REPORT_ITF_NUM_HID, 0, HID_ITF_PROTOCOL_KEYBOARD, sizeof(desc_hid_report), EPNUM_HID, CFG_TUD_HID_EP_BUFSIZE, 0x08),
+  TUD_HID_INOUT_DESCRIPTOR(REPORT_ITF_NUM_HID, 0, HID_ITF_PROTOCOL_KEYBOARD, sizeof(desc_hid_report), EPNUM_HID_IN, EPNUM_HID_OUT, CFG_TUD_HID_EP_BUFSIZE, 0x08),
 };
 
 
@@ -166,10 +157,11 @@ uint8_t const * tud_descriptor_configuration_cb(uint8_t index)
   (void) index; // for multiple configurations
 
   // This example use the same configuration for both high and full speed mode
-  if(device_mode==DEVICE_MODE_BOOT) {
-    return boot_desc_configuration;
-  } else {
+  if(device_mode==DEVICE_MODE_REPORT) {
     return report_desc_fs_configuration;
+  } else {
+    device_mode = DEVICE_MODE_BOOT;
+    return boot_desc_configuration;
   }
 }
 
