@@ -95,9 +95,9 @@
 #endif
 
 //------------- CLASS -------------//
-#define CFG_TUD_HID               1
+#define CFG_TUD_HID               2
 #define CFG_TUD_CDC               1
-#define CFG_TUD_MSC               0
+#define CFG_TUD_MSC               1
 #define CFG_TUD_MIDI              0
 #define CFG_TUD_VENDOR            0
 
@@ -110,6 +110,8 @@
 
 // CDC Endpoint transfer buffer size, more is faster
 #define CFG_TUD_CDC_EP_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 512 : 64)
+
+#define CFG_TUD_MSC_EP_BUFSIZE 64
 
 #ifdef __cplusplus
  }

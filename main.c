@@ -133,8 +133,8 @@ static void send_down(bool btn) {
   }
 
   if( device_mode==DEVICE_MODE_BOOT ) {
-    if( tud_hid_n_ready(BOOT_ITF_NUM_KEYBOARD) ) {
-      tud_hid_n_keyboard_report(BOOT_ITF_NUM_KEYBOARD, 0, 0, keycode);
+    if( tud_hid_n_ready(0) ) {
+      tud_hid_n_keyboard_report(0, 0, 0, keycode);
     }
   } else {
     if( tud_hid_ready() ) {
